@@ -24,6 +24,7 @@ use bevy::time::TimeUpdateStrategy;
 
 use crate::game::GameState;
 use crate::platform::{Platform, PLATFORM_WIDTH};
+use crate::wall::Wall;
 use crate::WINDOW_WIDTH;
 
 /// Extra frames simulated after the run budget so async screenshots finish writing to disk.
@@ -230,6 +231,7 @@ fn log_state(
     diagnostics: Res<DiagnosticsStore>,
     held: Res<HeldKeys>,
     platform: Query<&Transform, With<Platform>>,
+    walls: Query<(&Transform, &Sprite, &Visibility), With<Wall>>,
     entities: Query<Entity>,
     mut log: ResMut<StateLog>,
 ) {
@@ -253,6 +255,27 @@ fn log_state(
     let mut held_names: Vec<String> = held.0.iter().filter_map(|k| name_from_key(*k)).collect();
     held_names.sort();
 
+    // Wall geometry as inner-face bounds so placement can be verified numerically (walls are
+    // off-screen + invisible, so screenshots can't show them).
+    let walls: Vec<_> = walls
+        .iter()
+        .map(|(transform, sprite, visibility)| {
+            let size = sprite.custom_size.unwrap_or(Vec2::ZERO);
+            let center = transform.translation;
+            serde_json::json!({
+                "cx": center.x,
+                "cy": center.y,
+                "w": size.x,
+                "h": size.y,
+                "min_x": center.x - size.x / 2.0,
+                "max_x": center.x + size.x / 2.0,
+                "min_y": center.y - size.y / 2.0,
+                "max_y": center.y + size.y / 2.0,
+                "visible": matches!(visibility, Visibility::Visible),
+            })
+        })
+        .collect();
+
     let line = serde_json::json!({
         "frame": frame,
         "platform_x": platform_x,
@@ -261,6 +284,7 @@ fn log_state(
         "at_right_edge": at_right,
         "fps": fps,
         "entities": entities.iter().count(),
+        "walls": walls,
         "dt": time.delta_secs(),
     });
     let _ = writeln!(log.writer, "{line}");

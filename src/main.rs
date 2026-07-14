@@ -3,9 +3,11 @@ use bevy::window::PresentMode;
 
 mod game;
 mod platform;
+mod wall;
 
 use game::GamePlugin;
 use platform::PlatformPlugin;
+use wall::WallPlugin;
 
 #[cfg(feature = "debug")]
 mod debug;
@@ -35,6 +37,7 @@ fn main() {
     .insert_resource(ClearColor(Color::srgb(0.78, 0.72, 0.58)))
     .add_plugins(GamePlugin)
     .add_plugins(PlatformPlugin)
+    .add_plugins(WallPlugin)
     .add_systems(Startup, setup);
 
     #[cfg(feature = "debug")]
