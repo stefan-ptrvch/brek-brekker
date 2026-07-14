@@ -1,0 +1,11 @@
+{
+  "name": "kill-plane",
+  "run_frames": 220,
+  "init": { "platform_x": 0.0 },
+  "inputs": [
+    { "at": 5, "press": ["Space"] },
+    { "at": 6, "release": ["Space"] },
+    { "at": 7, "press": ["D"] }
+  ],
+  "screenshots": [3, 80, 200]
+}

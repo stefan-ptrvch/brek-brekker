@@ -4,12 +4,14 @@ use bevy::window::PresentMode;
 mod ball;
 mod collision;
 mod game;
+mod kill_plane;
 mod platform;
 mod wall;
 
 use ball::BallPlugin;
 use collision::CollisionPlugin;
 use game::GamePlugin;
+use kill_plane::KillPlanePlugin;
 use platform::PlatformPlugin;
 use wall::WallPlugin;
 
@@ -44,6 +46,7 @@ fn main() {
     .add_plugins(PlatformPlugin)
     .add_plugins(WallPlugin)
     .add_plugins(BallPlugin)
+    .add_plugins(KillPlanePlugin)
     .add_systems(Startup, setup);
 
     #[cfg(feature = "debug")]

@@ -49,6 +49,12 @@ impl Plugin for CollisionPlugin {
     }
 }
 
+/// Whether two axis-aligned boxes overlap.
+pub fn aabb_overlap(a_center: Vec2, a_half: Vec2, b_center: Vec2, b_half: Vec2) -> bool {
+    (a_center.x - b_center.x).abs() < a_half.x + b_half.x
+        && (a_center.y - b_center.y).abs() < a_half.y + b_half.y
+}
+
 /// Minimum translation vector to push box A out of box B, or `None` if they don't overlap.
 /// Resolves along the axis of least penetration.
 fn aabb_mtv(a_center: Vec2, a_half: Vec2, b_center: Vec2, b_half: Vec2) -> Option<Vec2> {
@@ -85,10 +91,11 @@ fn resolve_kinematic(
     }
 }
 
-/// Push each dynamic body out of every other collider and reflect its velocity (ball bounces).
+/// Push each dynamic body out of every solid collider and reflect its velocity (ball bounces).
+/// Only `Static`/`Kinematic` bodies are solid; sensor colliders (no body marker) are ignored.
 fn resolve_dynamic(
     mut dynamics: Query<(&mut Transform, &Collider, &mut Velocity), With<Dynamic>>,
-    obstacles: Query<(&Transform, &Collider), Without<Dynamic>>,
+    obstacles: Query<(&Transform, &Collider), (Without<Dynamic>, Or<(With<Static>, With<Kinematic>)>)>,
 ) {
     for (mut transform, collider, mut velocity) in &mut dynamics {
         for (obstacle_transform, obstacle_collider) in &obstacles {
