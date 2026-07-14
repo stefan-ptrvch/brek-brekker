@@ -343,6 +343,7 @@ fn key_from_name(name: &str) -> Option<KeyCode> {
         "D" | "d" | "KeyD" => Some(KeyCode::KeyD),
         "R" | "r" | "KeyR" => Some(KeyCode::KeyR),
         "Space" | "Spacebar" | " " => Some(KeyCode::Space),
+        "Escape" | "Esc" => Some(KeyCode::Escape),
         _ => None,
     }
 }

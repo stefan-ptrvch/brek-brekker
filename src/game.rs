@@ -47,6 +47,8 @@ impl Plugin for GamePlugin {
                 Update,
                 restart_on_key.run_if(in_state(GameState::Playing)),
             )
+            // Quit works in any state.
+            .add_systems(Update, quit_on_escape)
             .add_systems(OnEnter(GameState::Restarting), finish_restart);
     }
 }
@@ -64,4 +66,11 @@ fn restart_on_key(
 /// Immediately return to `Playing`, re-running every `OnEnter(Playing)` spawner.
 fn finish_restart(mut next_state: ResMut<NextState<GameState>>) {
     next_state.set(GameState::Playing);
+}
+
+/// Quit the app when Escape is pressed.
+fn quit_on_escape(keyboard: Res<ButtonInput<KeyCode>>, mut exit: MessageWriter<AppExit>) {
+    if keyboard.just_pressed(KeyCode::Escape) {
+        exit.write(AppExit::Success);
+    }
 }
