@@ -1,0 +1,12 @@
+{
+  "name": "restart",
+  "run_frames": 160,
+  "init": { "platform_x": 0.0 },
+  "inputs": [
+    { "at": 0, "press": ["Left"] },
+    { "at": 90, "release": ["Left"] },
+    { "at": 100, "press": ["R"] },
+    { "at": 101, "release": ["R"] }
+  ],
+  "screenshots": [3, 90, 110, 159]
+}

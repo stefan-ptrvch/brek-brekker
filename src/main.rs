@@ -1,8 +1,10 @@
 use bevy::prelude::*;
 use bevy::window::PresentMode;
 
+mod game;
 mod platform;
 
+use game::GamePlugin;
 use platform::PlatformPlugin;
 
 #[cfg(feature = "debug")]
@@ -31,6 +33,7 @@ fn main() {
         ..default()
     }))
     .insert_resource(ClearColor(Color::srgb(0.78, 0.72, 0.58)))
+    .add_plugins(GamePlugin)
     .add_plugins(PlatformPlugin)
     .add_systems(Startup, setup);
 

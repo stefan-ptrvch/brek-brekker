@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+use crate::game::GameState;
 use crate::{WINDOW_HEIGHT, WINDOW_WIDTH};
 
 pub const PLATFORM_WIDTH: f32 = 120.0;
@@ -13,14 +14,19 @@ pub struct PlatformPlugin;
 
 impl Plugin for PlatformPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, spawn_platform)
-            .add_systems(Update, move_platform);
+        app.add_systems(OnEnter(GameState::Playing), spawn_platform)
+            .add_systems(
+                Update,
+                move_platform.run_if(in_state(GameState::Playing)),
+            );
     }
 }
 
 pub fn spawn_platform(mut commands: Commands) {
     commands.spawn((
         Platform,
+        // Despawned automatically when we leave `Playing`, so restart cleans it up.
+        DespawnOnExit(GameState::Playing),
         Sprite::from_color(
             Color::srgb(0.1, 0.45, 0.65),
             Vec2::new(PLATFORM_WIDTH, PLATFORM_HEIGHT),

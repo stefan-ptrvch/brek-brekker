@@ -22,6 +22,7 @@ use bevy::prelude::*;
 use bevy::render::view::screenshot::{save_to_disk, Screenshot};
 use bevy::time::TimeUpdateStrategy;
 
+use crate::game::GameState;
 use crate::platform::{Platform, PLATFORM_WIDTH};
 use crate::WINDOW_WIDTH;
 
@@ -117,7 +118,10 @@ impl Plugin for DebugPlugin {
             app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(
                 1.0 / 60.0,
             )))
-            .add_systems(Startup, apply_init.after(crate::platform::spawn_platform))
+            .add_systems(
+                OnEnter(GameState::Playing),
+                apply_init.after(crate::platform::spawn_platform),
+            )
             .add_systems(PreUpdate, inject_input.after(InputSystems))
             .add_systems(Update, take_scheduled_screenshots)
             .add_systems(PostUpdate, bounded_exit);
@@ -295,6 +299,7 @@ fn key_from_name(name: &str) -> Option<KeyCode> {
         "Right" | "ArrowRight" => Some(KeyCode::ArrowRight),
         "A" | "a" | "KeyA" => Some(KeyCode::KeyA),
         "D" | "d" | "KeyD" => Some(KeyCode::KeyD),
+        "R" | "r" | "KeyR" => Some(KeyCode::KeyR),
         _ => None,
     }
 }
@@ -305,6 +310,7 @@ fn name_from_key(key: KeyCode) -> Option<String> {
         KeyCode::ArrowRight => Some("Right".into()),
         KeyCode::KeyA => Some("A".into()),
         KeyCode::KeyD => Some("D".into()),
+        KeyCode::KeyR => Some("R".into()),
         _ => None,
     }
 }
