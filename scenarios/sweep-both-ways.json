@@ -1,0 +1,11 @@
+{
+  "name": "sweep-both-ways",
+  "run_frames": 300,
+  "init": { "platform_x": 0.0 },
+  "inputs": [
+    { "at": 0, "press": ["Left"] },
+    { "at": 120, "release": ["Left"], "press": ["Right"] },
+    { "at": 260, "release": ["Right"] }
+  ],
+  "screenshots": [3, 120, 260, 299]
+}

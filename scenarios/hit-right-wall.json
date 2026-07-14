@@ -1,0 +1,9 @@
+{
+  "name": "hit-right-wall",
+  "run_frames": 180,
+  "init": { "platform_x": 0.0 },
+  "inputs": [
+    { "at": 0, "press": ["D"] }
+  ],
+  "screenshots": [3, 90, 179]
+}

@@ -2,12 +2,12 @@ use bevy::prelude::*;
 
 use crate::{WINDOW_HEIGHT, WINDOW_WIDTH};
 
-const PLATFORM_WIDTH: f32 = 120.0;
+pub const PLATFORM_WIDTH: f32 = 120.0;
 const PLATFORM_HEIGHT: f32 = 20.0;
 const PLATFORM_SPEED: f32 = 400.0;
 
 #[derive(Component)]
-struct Platform;
+pub struct Platform;
 
 pub struct PlatformPlugin;
 
@@ -18,7 +18,7 @@ impl Plugin for PlatformPlugin {
     }
 }
 
-fn spawn_platform(mut commands: Commands) {
+pub fn spawn_platform(mut commands: Commands) {
     commands.spawn((
         Platform,
         Sprite::from_color(
