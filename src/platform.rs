@@ -1,7 +1,8 @@
 use bevy::prelude::*;
 
-use crate::game::GameState;
-use crate::{WINDOW_HEIGHT, WINDOW_WIDTH};
+use crate::collision::{Collider, Dynamic};
+use crate::game::{GameState, GameplaySet};
+use crate::WINDOW_HEIGHT;
 
 pub const PLATFORM_WIDTH: f32 = 120.0;
 const PLATFORM_HEIGHT: f32 = 20.0;
@@ -15,10 +16,7 @@ pub struct PlatformPlugin;
 impl Plugin for PlatformPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(OnEnter(GameState::Playing), spawn_platform)
-            .add_systems(
-                Update,
-                move_platform.run_if(in_state(GameState::Playing)),
-            );
+            .add_systems(Update, move_platform.in_set(GameplaySet::Movement));
     }
 }
 
@@ -27,6 +25,11 @@ pub fn spawn_platform(mut commands: Commands) {
         Platform,
         // Despawned automatically when we leave `Playing`, so restart cleans it up.
         DespawnOnExit(GameState::Playing),
+        // Dynamic collider: the collision system keeps it out of the walls.
+        Collider {
+            half_size: Vec2::new(PLATFORM_WIDTH, PLATFORM_HEIGHT) / 2.0,
+        },
+        Dynamic,
         Sprite::from_color(
             Color::srgb(0.1, 0.45, 0.65),
             Vec2::new(PLATFORM_WIDTH, PLATFORM_HEIGHT),
@@ -48,9 +51,8 @@ fn move_platform(
         direction += 1.0;
     }
 
-    let max_x = WINDOW_WIDTH / 2.0 - PLATFORM_WIDTH / 2.0;
+    // Move freely; the collision system stops the platform at the walls.
     for mut transform in &mut query {
         transform.translation.x += direction * PLATFORM_SPEED * time.delta_secs();
-        transform.translation.x = transform.translation.x.clamp(-max_x, max_x);
     }
 }

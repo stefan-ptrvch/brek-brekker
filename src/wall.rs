@@ -7,6 +7,7 @@
 
 use bevy::prelude::*;
 
+use crate::collision::Collider;
 use crate::game::GameState;
 use crate::{WINDOW_HEIGHT, WINDOW_WIDTH};
 
@@ -48,6 +49,9 @@ pub fn spawn_wall(commands: &mut Commands, spec: WallSpec) -> Entity {
         .spawn((
             Wall,
             DespawnOnExit(GameState::Playing),
+            Collider {
+                half_size: spec.size / 2.0,
+            },
             Sprite::from_color(spec.color, spec.size),
             Transform::from_xyz(spec.position.x, spec.position.y, 0.0),
             visibility,

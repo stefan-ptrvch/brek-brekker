@@ -24,11 +24,25 @@ pub enum GameState {
     Restarting,
 }
 
+/// Ordering of per-frame gameplay work. Chained so collisions resolve after all movement, and
+/// gated to `Playing` at the set level (systems in these sets inherit the condition).
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub enum GameplaySet {
+    Movement,
+    Collision,
+}
+
 pub struct GamePlugin;
 
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
         app.init_state::<GameState>()
+            .configure_sets(
+                Update,
+                (GameplaySet::Movement, GameplaySet::Collision)
+                    .chain()
+                    .run_if(in_state(GameState::Playing)),
+            )
             .add_systems(
                 Update,
                 restart_on_key.run_if(in_state(GameState::Playing)),

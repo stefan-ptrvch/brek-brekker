@@ -1,10 +1,12 @@
 use bevy::prelude::*;
 use bevy::window::PresentMode;
 
+mod collision;
 mod game;
 mod platform;
 mod wall;
 
+use collision::CollisionPlugin;
 use game::GamePlugin;
 use platform::PlatformPlugin;
 use wall::WallPlugin;
@@ -36,6 +38,7 @@ fn main() {
     }))
     .insert_resource(ClearColor(Color::srgb(0.78, 0.72, 0.58)))
     .add_plugins(GamePlugin)
+    .add_plugins(CollisionPlugin)
     .add_plugins(PlatformPlugin)
     .add_plugins(WallPlugin)
     .add_systems(Startup, setup);
