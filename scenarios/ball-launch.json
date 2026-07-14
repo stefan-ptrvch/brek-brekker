@@ -1,0 +1,12 @@
+{
+  "name": "ball-launch",
+  "run_frames": 220,
+  "init": { "platform_x": 0.0 },
+  "inputs": [
+    { "at": 0, "press": ["D"] },
+    { "at": 30, "release": ["D"] },
+    { "at": 35, "press": ["Space"] },
+    { "at": 36, "release": ["Space"] }
+  ],
+  "screenshots": [3, 30, 70, 108, 160]
+}

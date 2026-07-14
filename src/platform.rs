@@ -1,12 +1,14 @@
 use bevy::prelude::*;
 
-use crate::collision::{Collider, Dynamic};
+use crate::collision::{Collider, Kinematic};
 use crate::game::{GameState, GameplaySet};
 use crate::WINDOW_HEIGHT;
 
 pub const PLATFORM_WIDTH: f32 = 120.0;
-const PLATFORM_HEIGHT: f32 = 20.0;
+pub const PLATFORM_HEIGHT: f32 = 20.0;
 const PLATFORM_SPEED: f32 = 400.0;
+/// Fixed vertical center of the platform (it only moves horizontally).
+pub const PLATFORM_Y: f32 = -WINDOW_HEIGHT / 2.0 + 40.0;
 
 #[derive(Component)]
 pub struct Platform;
@@ -25,16 +27,16 @@ pub fn spawn_platform(mut commands: Commands) {
         Platform,
         // Despawned automatically when we leave `Playing`, so restart cleans it up.
         DespawnOnExit(GameState::Playing),
-        // Dynamic collider: the collision system keeps it out of the walls.
+        // Kinematic collider: the collision system keeps it out of the walls.
         Collider {
             half_size: Vec2::new(PLATFORM_WIDTH, PLATFORM_HEIGHT) / 2.0,
         },
-        Dynamic,
+        Kinematic,
         Sprite::from_color(
             Color::srgb(0.1, 0.45, 0.65),
             Vec2::new(PLATFORM_WIDTH, PLATFORM_HEIGHT),
         ),
-        Transform::from_xyz(0.0, -WINDOW_HEIGHT / 2.0 + 40.0, 0.0),
+        Transform::from_xyz(0.0, PLATFORM_Y, 0.0),
     ));
 }
 

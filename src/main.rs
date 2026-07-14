@@ -1,11 +1,13 @@
 use bevy::prelude::*;
 use bevy::window::PresentMode;
 
+mod ball;
 mod collision;
 mod game;
 mod platform;
 mod wall;
 
+use ball::BallPlugin;
 use collision::CollisionPlugin;
 use game::GamePlugin;
 use platform::PlatformPlugin;
@@ -41,6 +43,7 @@ fn main() {
     .add_plugins(CollisionPlugin)
     .add_plugins(PlatformPlugin)
     .add_plugins(WallPlugin)
+    .add_plugins(BallPlugin)
     .add_systems(Startup, setup);
 
     #[cfg(feature = "debug")]

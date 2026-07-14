@@ -22,6 +22,8 @@ use bevy::prelude::*;
 use bevy::render::view::screenshot::{save_to_disk, Screenshot};
 use bevy::time::TimeUpdateStrategy;
 
+use crate::ball::{Ball, BallState};
+use crate::collision::Velocity;
 use crate::game::GameState;
 use crate::platform::{Platform, PLATFORM_WIDTH};
 use crate::wall::Wall;
@@ -232,6 +234,7 @@ fn log_state(
     held: Res<HeldKeys>,
     platform: Query<&Transform, With<Platform>>,
     walls: Query<(&Transform, &Sprite, &Visibility), With<Wall>>,
+    ball: Query<(&Transform, &Velocity, &BallState), With<Ball>>,
     entities: Query<Entity>,
     mut log: ResMut<StateLog>,
 ) {
@@ -276,6 +279,20 @@ fn log_state(
         })
         .collect();
 
+    let ball = ball.single().ok().map(|(transform, velocity, state)| {
+        serde_json::json!({
+            "x": transform.translation.x,
+            "y": transform.translation.y,
+            "vx": velocity.0.x,
+            "vy": velocity.0.y,
+            "speed": velocity.0.length(),
+            "state": match state {
+                BallState::Stuck => "stuck",
+                BallState::Free => "free",
+            },
+        })
+    });
+
     let line = serde_json::json!({
         "frame": frame,
         "platform_x": platform_x,
@@ -285,6 +302,7 @@ fn log_state(
         "fps": fps,
         "entities": entities.iter().count(),
         "walls": walls,
+        "ball": ball,
         "dt": time.delta_secs(),
     });
     let _ = writeln!(log.writer, "{line}");
@@ -324,6 +342,7 @@ fn key_from_name(name: &str) -> Option<KeyCode> {
         "A" | "a" | "KeyA" => Some(KeyCode::KeyA),
         "D" | "d" | "KeyD" => Some(KeyCode::KeyD),
         "R" | "r" | "KeyR" => Some(KeyCode::KeyR),
+        "Space" | "Spacebar" | " " => Some(KeyCode::Space),
         _ => None,
     }
 }
@@ -335,6 +354,7 @@ fn name_from_key(key: KeyCode) -> Option<String> {
         KeyCode::KeyA => Some("A".into()),
         KeyCode::KeyD => Some("D".into()),
         KeyCode::KeyR => Some("R".into()),
+        KeyCode::Space => Some("Space".into()),
         _ => None,
     }
 }
