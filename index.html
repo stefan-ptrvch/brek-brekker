@@ -52,7 +52,7 @@
   <h1 id="ov-title">SWAT BREAKER</h1>
   <p id="ov-text">No paddle. Swipe <b>through the ball</b> to whack it at the bricks — your swipe direction and speed become the ball's. Gravity pulls it back down; keep it alive. Time slows when the ball drops low, so line up your swat.</p>
   <div class="score-line" id="ov-score" style="display:none">Final score <b id="ov-score-val">0</b></div>
-  <div class="cta" id="ov-cta">SWIPE TO START</div>
+  <div class="cta" id="ov-cta">TAP TO START</div>
 </div>
 <script>
 (() => {
@@ -212,7 +212,7 @@
       ovText.textContent = 'The bricks live to see another day.';
       ovScore.style.display = 'block';
       ovScoreVal.textContent = score;
-      ovCta.textContent = 'SWIPE TO RETRY';
+      ovCta.textContent = 'TAP TO RETRY';
       overlay.classList.remove('hidden');
     } else {
       resetBall();
