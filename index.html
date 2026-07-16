@@ -57,7 +57,7 @@
   <p id="ov-text">Swipe <b>through the ball</b> to whack it at the bricks — your swipe direction and speed become the ball's. Gravity pulls it back down; keep it alive. Time slows when the ball drops low, so line up your swat.</p>
   <div class="score-line" id="ov-score" style="display:none">Final score <b id="ov-score-val">0</b></div>
   <div class="cta" id="ov-cta">TAP TO START</div>
-  <div id="version">v0.2.3</div>
+  <div id="version">v0.2.4</div>
 </div>
 <script>
 (() => {
@@ -326,6 +326,7 @@
         score += 100;
         floatText(W/2, H/2, 'LEVEL ' + level, STREAK);
         buildLevel(level);
+        resetBall();
         syncHud();
       }
     }
