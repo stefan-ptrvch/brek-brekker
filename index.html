@@ -93,8 +93,8 @@
   let shake = 0, timeScale = 1, flashLow = 0;
 
   const GRAV = 900;            // px/s^2
-  const MAX_SPEED = 1300, MIN_SWAT = 380;
-  const ball = { x:0, y:0, vx:0, vy:0, r:11, waiting:true, spin:0 };
+  const MAX_SPEED = 1000, MIN_SWAT = 380;
+  const ball = { x:0, y:0, vx:0, vy:0, r:11, hitR:12.65, waiting:true, spin:0 };
   let swatCooldown = 0;
 
   // ---- pointer / swipe ----
@@ -262,10 +262,21 @@
         const nx = Math.max(b.x, Math.min(ball.x, b.x + b.w));
         const ny = Math.max(b.y, Math.min(ball.y, b.y + b.h));
         const ddx = ball.x - nx, ddy = ball.y - ny;
-        if (ddx*ddx + ddy*ddy <= ball.r * ball.r) {
+        if (ddx*ddx + ddy*ddy <= ball.hitR * ball.hitR) {
           // reflect on dominant axis
           if (Math.abs(ddx) > Math.abs(ddy)) ball.vx = Math.sign(ddx || 1) * Math.abs(ball.vx);
           else ball.vy = Math.sign(ddy || 1) * Math.abs(ball.vy);
+          // separate ball from brick so it can't re-collide next frame
+          const dist = Math.hypot(ddx, ddy);
+          if (dist > 0) {
+            const push = ball.hitR - dist;
+            ball.x += ddx / dist * push;
+            ball.y += ddy / dist * push;
+          } else {
+            // center inside brick: push out along dominant axis of velocity
+            if (Math.abs(ball.vx) > Math.abs(ball.vy)) ball.x = ball.vx > 0 ? b.x + b.w + ball.hitR : b.x - ball.hitR;
+            else ball.y = ball.vy > 0 ? b.y + b.h + ball.hitR : b.y - ball.hitR;
+          }
           b.hp--;
           const color = TIERS[Math.max(0, Math.min(b.hp, 3))];
           if (b.hp <= 0) {
