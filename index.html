@@ -57,7 +57,7 @@
   <p id="ov-text">Swipe <b>through the ball</b> to whack it at the bricks — your swipe direction and speed become the ball's. Gravity pulls it back down; keep it alive. Time slows when the ball drops low, so line up your swat.</p>
   <div class="score-line" id="ov-score" style="display:none">Final score <b id="ov-score-val">0</b></div>
   <div class="cta" id="ov-cta">TAP TO START</div>
-  <div id="version">v0.2.1</div>
+  <div id="version">v0.2.3</div>
 </div>
 <script>
 (() => {
@@ -99,7 +99,8 @@
 
   const GRAV = 900;            // px/s^2
   const MAX_SPEED = 1200, MIN_SWAT = 380;
-  const ball = { x:0, y:0, vx:0, vy:0, r:11, hitR:11.4, waiting:true, spin:0 };
+  const SEP = 0.5;             // separation epsilon: a resolved ball sits strictly outside the brick
+  const ball = { x:0, y:0, vx:0, vy:0, r:11, hitR:11.4, waiting:true };
   let swatCooldown = 0;
 
   // ---- pointer / swipe ----
@@ -133,7 +134,7 @@
   });
 
   function trySwat(a, b) {
-    if (swatCooldown > 0 || ball.waiting && false) return;
+    if (swatCooldown > 0) return;
     const dx = b.x - a.x, dy = b.y - a.y;
     const now = performance.now();
     // swipe speed over recent trail (last ~80ms)
@@ -158,7 +159,6 @@
     ball.vx = sx / n * mag;
     ball.vy = sy / n * mag;
     ball.waiting = false;
-    ball.spin = (Math.random() - .5) * 10;
     swatCooldown = 0.15;
     combo = 0;
     shake = Math.min(6, 2 + mag / 300);
@@ -170,7 +170,7 @@
     bricks = [];
     const cols = Math.min(6 + Math.floor(n / 2), 9);
     const rows = Math.min(3 + n, 7);
-    const margin = 14, gap = 6;
+    const margin = 26, gap = 6; // margin > wall-clamped ball center (r) + hitR so the ball fits between wall and edge bricks
     const topPad = 64;
     const bw = (W - margin * 2 - gap * (cols - 1)) / cols;
     const bh = Math.min(26, bw * 0.42);
@@ -179,7 +179,7 @@
         if (Math.random() < 0.08 && n > 1) continue; // holes for variety
         const maxHp = Math.min(1 + Math.floor((rows - 1 - r) / 2) + Math.floor(n / 3), 4);
         const hp = 1 + Math.floor(Math.random() * maxHp);
-        bricks.push({ x: margin + c * (bw + gap), y: topPad + r * (bh + gap), w: bw, h: bh, hp });
+        bricks.push({ x: margin + c * (bw + gap), y: topPad + r * (bh + gap), w: bw, h: bh, hp, cd: 0 });
       }
     }
   }
@@ -251,6 +251,9 @@
       ball.vy += GRAV * sdt;
       const sp = Math.hypot(ball.vx, ball.vy);
       if (sp > MAX_SPEED) { ball.vx *= MAX_SPEED/sp; ball.vy *= MAX_SPEED/sp; }
+      // per-brick damage cooldown so lingering contact can't melt a brick
+      for (const b of bricks) if (b.cd > 0) b.cd -= dt;
+
       // substep movement so a fast ball can't tunnel through bricks
       const steps = Math.max(1, Math.ceil(Math.hypot(ball.vx, ball.vy) * sdt / (ball.hitR * 0.6)));
       const stepDt = sdt / steps;
@@ -258,49 +261,62 @@
         ball.x += ball.vx * stepDt;
         ball.y += ball.vy * stepDt;
 
-        // walls & ceiling
-        if (ball.x < ball.r) { ball.x = ball.r; ball.vx = Math.abs(ball.vx); }
-        if (ball.x > W - ball.r) { ball.x = W - ball.r; ball.vx = -Math.abs(ball.vx); }
-        if (ball.y < ball.r) { ball.y = ball.r; ball.vy = Math.abs(ball.vy); }
-
-        // bricks
-        for (let i = bricks.length - 1; i >= 0; i--) {
+        // resolve only the deepest-overlapping brick this substep;
+        // the next substep re-evaluates, so seam hits can't ping-pong
+        let hit = -1, hitD2 = Infinity, hitCx = 0, hitCy = 0;
+        for (let i = 0; i < bricks.length; i++) {
           const b = bricks[i];
-          const nx = Math.max(b.x, Math.min(ball.x, b.x + b.w));
-          const ny = Math.max(b.y, Math.min(ball.y, b.y + b.h));
-          const ddx = ball.x - nx, ddy = ball.y - ny;
-          if (ddx*ddx + ddy*ddy <= ball.hitR * ball.hitR) {
-            // reflect on dominant axis
-            if (Math.abs(ddx) > Math.abs(ddy)) ball.vx = Math.sign(ddx || 1) * Math.abs(ball.vx);
-            else ball.vy = Math.sign(ddy || 1) * Math.abs(ball.vy);
-            // separate ball from brick so it can't re-collide next step
-            const dist = Math.hypot(ddx, ddy);
-            if (dist > 0) {
-              const push = ball.hitR - dist;
-              ball.x += ddx / dist * push;
-              ball.y += ddy / dist * push;
-            } else {
-              // center inside brick: push out along dominant axis of velocity
-              if (Math.abs(ball.vx) > Math.abs(ball.vy)) ball.x = ball.vx > 0 ? b.x + b.w + ball.hitR : b.x - ball.hitR;
-              else ball.y = ball.vy > 0 ? b.y + b.h + ball.hitR : b.y - ball.hitR;
-            }
+          const cx = Math.max(b.x, Math.min(ball.x, b.x + b.w));
+          const cy = Math.max(b.y, Math.min(ball.y, b.y + b.h));
+          const ddx = ball.x - cx, ddy = ball.y - cy;
+          const d2 = ddx*ddx + ddy*ddy;
+          if (d2 <= ball.hitR * ball.hitR && d2 < hitD2) { hitD2 = d2; hit = i; hitCx = cx; hitCy = cy; }
+        }
+        if (hit >= 0) {
+          const b = bricks[hit];
+          const dist = Math.sqrt(hitD2);
+          let nx = 0, ny = 0; // contact normal, pointing away from the brick
+          if (dist > 0) {
+            nx = (ball.x - hitCx) / dist; ny = (ball.y - hitCy) / dist;
+            const push = ball.hitR - dist + SEP;
+            ball.x += nx * push;
+            ball.y += ny * push;
+          } else {
+            // center inside brick: exit through the nearest face
+            const dl = ball.x - b.x, dr = b.x + b.w - ball.x;
+            const dt2 = ball.y - b.y, db = b.y + b.h - ball.y;
+            const m = Math.min(dl, dr, dt2, db);
+            if (m === dl) { nx = -1; ball.x = b.x - ball.hitR - SEP; }
+            else if (m === dr) { nx = 1; ball.x = b.x + b.w + ball.hitR + SEP; }
+            else if (m === dt2) { ny = -1; ball.y = b.y - ball.hitR - SEP; }
+            else { ny = 1; ball.y = b.y + b.h + ball.hitR + SEP; }
+          }
+          // mirror velocity about the normal, only when moving into the brick
+          const dot = ball.vx * nx + ball.vy * ny;
+          if (dot < 0) { ball.vx -= 2 * dot * nx; ball.vy -= 2 * dot * ny; }
+          if (b.cd <= 0) {
+            b.cd = 0.1;
             b.hp--;
             const color = TIERS[Math.max(0, Math.min(b.hp, 3))];
             if (b.hp <= 0) {
               combo++;
               const pts = 10 * combo;
               score += pts;
-              burst(nx, ny, TIERS[0], 14, 320);
-              floatText(nx, ny, combo > 1 ? pts + ' x' + combo : '' + pts, BALL_COLOR);
-              bricks.splice(i, 1);
+              burst(hitCx, hitCy, TIERS[0], 14, 320);
+              floatText(hitCx, hitCy, combo > 1 ? pts + ' x' + combo : '' + pts, BALL_COLOR);
+              bricks.splice(hit, 1);
             } else {
-              burst(nx, ny, color, 6, 200);
+              burst(hitCx, hitCy, color, 6, 200);
             }
             shake = Math.max(shake, 3);
             syncHud();
-            break;
           }
         }
+
+        // walls & ceiling last, so the ball is never left outside the court
+        if (ball.x < ball.r) { ball.x = ball.r; ball.vx = Math.abs(ball.vx); }
+        if (ball.x > W - ball.r) { ball.x = W - ball.r; ball.vx = -Math.abs(ball.vx); }
+        if (ball.y < ball.r) { ball.y = ball.r; ball.vy = Math.abs(ball.vy); }
       }
       // floor = death
       if (ball.y > H + ball.r * 2) loseLife();
