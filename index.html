@@ -93,8 +93,8 @@
   let shake = 0, timeScale = 1, flashLow = 0;
 
   const GRAV = 900;            // px/s^2
-  const MAX_SPEED = 1000, MIN_SWAT = 380;
-  const ball = { x:0, y:0, vx:0, vy:0, r:11, hitR:12.65, waiting:true, spin:0 };
+  const MAX_SPEED = 1200, MIN_SWAT = 380;
+  const ball = { x:0, y:0, vx:0, vy:0, r:11, hitR:11.4, waiting:true, spin:0 };
   let swatCooldown = 0;
 
   // ---- pointer / swipe ----
@@ -246,54 +246,59 @@
       ball.vy += GRAV * sdt;
       const sp = Math.hypot(ball.vx, ball.vy);
       if (sp > MAX_SPEED) { ball.vx *= MAX_SPEED/sp; ball.vy *= MAX_SPEED/sp; }
-      ball.x += ball.vx * sdt;
-      ball.y += ball.vy * sdt;
+      // substep movement so a fast ball can't tunnel through bricks
+      const steps = Math.max(1, Math.ceil(Math.hypot(ball.vx, ball.vy) * sdt / (ball.hitR * 0.6)));
+      const stepDt = sdt / steps;
+      for (let s = 0; s < steps; s++) {
+        ball.x += ball.vx * stepDt;
+        ball.y += ball.vy * stepDt;
 
-      // walls & ceiling
-      if (ball.x < ball.r) { ball.x = ball.r; ball.vx = Math.abs(ball.vx); }
-      if (ball.x > W - ball.r) { ball.x = W - ball.r; ball.vx = -Math.abs(ball.vx); }
-      if (ball.y < ball.r) { ball.y = ball.r; ball.vy = Math.abs(ball.vy); }
-      // floor = death
-      if (ball.y > H + ball.r * 2) loseLife();
+        // walls & ceiling
+        if (ball.x < ball.r) { ball.x = ball.r; ball.vx = Math.abs(ball.vx); }
+        if (ball.x > W - ball.r) { ball.x = W - ball.r; ball.vx = -Math.abs(ball.vx); }
+        if (ball.y < ball.r) { ball.y = ball.r; ball.vy = Math.abs(ball.vy); }
 
-      // bricks
-      for (let i = bricks.length - 1; i >= 0; i--) {
-        const b = bricks[i];
-        const nx = Math.max(b.x, Math.min(ball.x, b.x + b.w));
-        const ny = Math.max(b.y, Math.min(ball.y, b.y + b.h));
-        const ddx = ball.x - nx, ddy = ball.y - ny;
-        if (ddx*ddx + ddy*ddy <= ball.hitR * ball.hitR) {
-          // reflect on dominant axis
-          if (Math.abs(ddx) > Math.abs(ddy)) ball.vx = Math.sign(ddx || 1) * Math.abs(ball.vx);
-          else ball.vy = Math.sign(ddy || 1) * Math.abs(ball.vy);
-          // separate ball from brick so it can't re-collide next frame
-          const dist = Math.hypot(ddx, ddy);
-          if (dist > 0) {
-            const push = ball.hitR - dist;
-            ball.x += ddx / dist * push;
-            ball.y += ddy / dist * push;
-          } else {
-            // center inside brick: push out along dominant axis of velocity
-            if (Math.abs(ball.vx) > Math.abs(ball.vy)) ball.x = ball.vx > 0 ? b.x + b.w + ball.hitR : b.x - ball.hitR;
-            else ball.y = ball.vy > 0 ? b.y + b.h + ball.hitR : b.y - ball.hitR;
+        // bricks
+        for (let i = bricks.length - 1; i >= 0; i--) {
+          const b = bricks[i];
+          const nx = Math.max(b.x, Math.min(ball.x, b.x + b.w));
+          const ny = Math.max(b.y, Math.min(ball.y, b.y + b.h));
+          const ddx = ball.x - nx, ddy = ball.y - ny;
+          if (ddx*ddx + ddy*ddy <= ball.hitR * ball.hitR) {
+            // reflect on dominant axis
+            if (Math.abs(ddx) > Math.abs(ddy)) ball.vx = Math.sign(ddx || 1) * Math.abs(ball.vx);
+            else ball.vy = Math.sign(ddy || 1) * Math.abs(ball.vy);
+            // separate ball from brick so it can't re-collide next step
+            const dist = Math.hypot(ddx, ddy);
+            if (dist > 0) {
+              const push = ball.hitR - dist;
+              ball.x += ddx / dist * push;
+              ball.y += ddy / dist * push;
+            } else {
+              // center inside brick: push out along dominant axis of velocity
+              if (Math.abs(ball.vx) > Math.abs(ball.vy)) ball.x = ball.vx > 0 ? b.x + b.w + ball.hitR : b.x - ball.hitR;
+              else ball.y = ball.vy > 0 ? b.y + b.h + ball.hitR : b.y - ball.hitR;
+            }
+            b.hp--;
+            const color = TIERS[Math.max(0, Math.min(b.hp, 3))];
+            if (b.hp <= 0) {
+              combo++;
+              const pts = 10 * combo;
+              score += pts;
+              burst(nx, ny, TIERS[0], 14, 320);
+              floatText(nx, ny, combo > 1 ? pts + ' x' + combo : '' + pts, BALL_COLOR);
+              bricks.splice(i, 1);
+            } else {
+              burst(nx, ny, color, 6, 200);
+            }
+            shake = Math.max(shake, 3);
+            syncHud();
+            break;
           }
-          b.hp--;
-          const color = TIERS[Math.max(0, Math.min(b.hp, 3))];
-          if (b.hp <= 0) {
-            combo++;
-            const pts = 10 * combo;
-            score += pts;
-            burst(nx, ny, TIERS[0], 14, 320);
-            floatText(nx, ny, combo > 1 ? pts + ' x' + combo : '' + pts, BALL_COLOR);
-            bricks.splice(i, 1);
-          } else {
-            burst(nx, ny, color, 6, 200);
-          }
-          shake = Math.max(shake, 3);
-          syncHud();
-          break;
         }
       }
+      // floor = death
+      if (ball.y > H + ball.r * 2) loseLife();
 
       if (bricks.length === 0) {
         level++;
