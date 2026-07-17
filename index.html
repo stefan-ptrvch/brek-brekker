@@ -19,31 +19,115 @@
   .hud-label { font-size:10px; letter-spacing:2px; opacity:.55; text-transform:uppercase; }
   .hud-value { font-size:20px; font-weight:700; }
   #lives { text-align:right; }
-  #overlay {
+  #overlay, #scoreboard, #nameentry {
     position:fixed; inset:0; display:flex; flex-direction:column;
     align-items:center; justify-content:center; gap:18px; text-align:center;
     background:rgba(18,14,36,.82); backdrop-filter:blur(3px);
     font-family:'IBM Plex Mono', monospace; color:#EDE9FF; padding:24px;
   }
-  #overlay.hidden { display:none; }
-  #overlay h1 {
+  #overlay.hidden, #scoreboard.hidden, #nameentry.hidden { display:none; }
+  #overlay h1, #scoreboard h1, #nameentry h1 {
     font-family:'Bungee', cursive; font-size:clamp(34px, 9vw, 64px);
     line-height:1; color:#FFE14D;
     text-shadow:0 4px 0 #E84A8A, 0 8px 24px rgba(232,74,138,.45);
   }
-  #overlay p { max-width:420px; font-size:14px; line-height:1.7; opacity:.85; }
-  #overlay .cta {
+  #overlay p, #scoreboard p, #nameentry p { max-width:420px; font-size:14px; line-height:1.7; opacity:.85; }
+  #overlay .cta, #scoreboard .cta, #nameentry .cta {
     font-family:'Bungee', cursive; font-size:18px; color:#120E24;
     background:#7DF9E9; padding:14px 30px; border-radius:999px;
-    box-shadow:0 5px 0 #3BA99C; user-select:none;
+    box-shadow:0 5px 0 #3BA99C; user-select:none; cursor:pointer;
   }
-  #overlay .score-line { font-size:16px; }
-  #overlay .score-line b { color:#FFE14D; font-size:26px; }
+  #overlay .score-line, #scoreboard .score-line, #nameentry .score-line { font-size:16px; }
+  #overlay .score-line b, #scoreboard .score-line b, #nameentry .score-line b { color:#FFE14D; font-size:26px; }
   #version {
     position:absolute; bottom:12px; right:16px;
     font-size:11px; letter-spacing:1px; opacity:.4;
   }
+  #overlay .cta.secondary, #scoreboard .cta.secondary, #nameentry .cta.secondary {
+    background:transparent; color:#7DF9E9; box-shadow:none;
+    border:2px solid rgba(125,249,233,.55); padding:11px 26px; font-size:15px;
+  }
+  #nameentry { justify-content:flex-start; padding-top:12vh; }
+  #ne-error { display:none; color:#E84A8A; font-size:13px; font-weight:700; max-width:320px; }
+  .score-list {
+    width:100%; max-width:360px; display:flex; flex-direction:column; gap:6px;
+    font-family:'IBM Plex Mono', monospace;
+  }
+  .score-row {
+    display:grid; grid-template-columns:34px 1fr auto; align-items:center; gap:12px;
+    padding:9px 14px; border-radius:10px; background:rgba(237,233,255,.05);
+    font-size:15px;
+  }
+  .score-row .rank { opacity:.5; font-size:13px; }
+  .score-row .name { letter-spacing:2px; font-weight:700; text-align:left; }
+  .score-row .pts { color:#FFE14D; font-weight:700; }
+  .score-row.me { background:rgba(255,225,77,.14); box-shadow:inset 0 0 0 1px rgba(255,225,77,.5); }
+  .score-row.me .name { color:#FFE14D; }
+  .score-empty { opacity:.55; font-size:13px; padding:8px; }
+  #name-input {
+    font-family:'Bungee', cursive; font-size:34px; letter-spacing:8px;
+    text-align:center; text-transform:uppercase; color:#FFE14D;
+    background:rgba(237,233,255,.06); border:2px solid rgba(125,249,233,.55);
+    border-radius:12px; padding:10px 16px; width:min(280px, 80vw);
+    caret-color:#7DF9E9; outline:none;
+  }
+  #name-input:focus { border-color:#7DF9E9; }
+  .cta.disabled { opacity:.4; pointer-events:none; }
 </style>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
+  import {
+    getFirestore, collection, query, orderBy, limit, getDocs, addDoc, serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDjVcADQaYPEIdmg3dxlzmmqvVaZMUn-jw",
+    authDomain: "brek-brekker.firebaseapp.com",
+    projectId: "brek-brekker",
+    storageBucket: "brek-brekker.firebasestorage.app",
+    messagingSenderId: "649148615222",
+    appId: "1:649148615222:web:ee3c592c919cbf5450e697"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const scoresRef = collection(db, "scores");
+
+  // Reject if a Firestore call neither resolves nor rejects in time (e.g. the DB
+  // is unreachable / not provisioned), so the UI degrades instead of hanging.
+  function withTimeout(promise, ms) {
+    return Promise.race([
+      promise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), ms))
+    ]);
+  }
+
+  window.BB_Scores = {
+    // Returns [{id, name, score}] (highest first, max 10), or null on failure/timeout.
+    async top10() {
+      try {
+        const snap = await withTimeout(getDocs(query(scoresRef, orderBy("score", "desc"), limit(10))), 6000);
+        return snap.docs.map(d => {
+          const v = d.data();
+          return { id: d.id, name: String(v.name || '???'), score: Number(v.score) || 0 };
+        });
+      } catch (e) {
+        console.error("top10 failed", e);
+        return null;
+      }
+    },
+    // Returns the new document id on success, or null on failure/timeout.
+    async submit(name, score) {
+      try {
+        const ref = await withTimeout(addDoc(scoresRef, { name: String(name).slice(0, 5), score: Number(score) || 0, ts: serverTimestamp() }), 8000);
+        return ref.id;
+      } catch (e) {
+        console.error("submit failed", e);
+        return null;
+      }
+    }
+  };
+</script>
 </head>
 <body>
 <canvas id="game"></canvas>
@@ -53,11 +137,25 @@
   <div class="hud-block" id="lives"><span class="hud-label">Lives</span><span class="hud-value" id="hearts">&#9829;&#9829;&#9829;</span></div>
 </div>
 <div id="overlay">
-  <h1 id="ov-title">BRICK BREAKER</h1>
+  <h1 id="ov-title">GARSI BLOX</h1>
   <p id="ov-text">Swipe <b>through the ball</b> to whack it at the bricks — your swipe direction and speed become the ball's. Gravity pulls it back down; keep it alive. Time slows when the ball drops low, so line up your swat.</p>
-  <div class="score-line" id="ov-score" style="display:none">Final score <b id="ov-score-val">0</b></div>
   <div class="cta" id="ov-cta">TAP TO START</div>
-  <div id="version">v0.2.7</div>
+  <div class="cta secondary" id="ov-scores">SCOREBOARD</div>
+  <div id="version">v0.3.0</div>
+</div>
+<div id="scoreboard" class="hidden">
+  <h1>HIGH SCORES</h1>
+  <div class="score-list" id="sb-list"></div>
+  <div class="cta" id="sb-btn">BACK</div>
+</div>
+<div id="nameentry" class="hidden">
+  <h1>NEW HIGH SCORE!</h1>
+  <div class="score-line">You scored <b id="ne-score">0</b></div>
+  <p>Tap the box to type your name, up to 5 characters.</p>
+  <input id="name-input" type="text" maxlength="5" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Your name" placeholder="AAA">
+  <div id="ne-error"></div>
+  <div class="cta disabled" id="ne-save">SAVE</div>
+  <div class="cta secondary" id="ne-skip">SKIP</div>
 </div>
 <script>
 (() => {
@@ -67,11 +165,16 @@
   const hudLevel = document.getElementById('level');
   const hudHearts = document.getElementById('hearts');
   const overlay = document.getElementById('overlay');
-  const ovTitle = document.getElementById('ov-title');
-  const ovText = document.getElementById('ov-text');
-  const ovScore = document.getElementById('ov-score');
-  const ovScoreVal = document.getElementById('ov-score-val');
-  const ovCta = document.getElementById('ov-cta');
+  const ovScores = document.getElementById('ov-scores');
+  const scoreboard = document.getElementById('scoreboard');
+  const sbList = document.getElementById('sb-list');
+  const sbBtn = document.getElementById('sb-btn');
+  const nameentry = document.getElementById('nameentry');
+  const neScore = document.getElementById('ne-score');
+  const neSave = document.getElementById('ne-save');
+  const neSkip = document.getElementById('ne-skip');
+  const neError = document.getElementById('ne-error');
+  const nameInput = document.getElementById('name-input');
 
   let W = 0, H = 0, DPR = 1;
   function resize() {
@@ -91,7 +194,7 @@
   const STREAK = '#7DF9E9';
 
   // ---- state ----
-  const S = { menu:0, playing:1, dead:2, over:3 };
+  const S = { menu:0, playing:1, dead:2, over:3, scores:4, name:5 };
   let state = S.menu;
   let score = 0, level = 1, lives = 3, combo = 0;
   let bricks = [], particles = [], floaters = [];
@@ -130,7 +233,12 @@
   });
   window.addEventListener('pointerup', () => { pointerDown = false; });
   overlay.addEventListener('pointerdown', () => {
-    if (state === S.menu || state === S.over) startGame();
+    if (state === S.menu) startGame();
+  });
+  ovScores.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    openScoreboard('menu');
   });
 
   function trySwat(a, b) {
@@ -201,6 +309,8 @@
     resetBall();
     state = S.playing;
     overlay.classList.add('hidden');
+    scoreboard.classList.add('hidden');
+    nameentry.classList.add('hidden');
     syncHud();
   }
   function resetBall() {
@@ -212,15 +322,126 @@
     syncHud();
     if (lives <= 0) {
       state = S.over;
-      ovTitle.textContent = 'GAME OVER';
-      ovText.textContent = 'The bricks live to see another day.';
-      ovScore.style.display = 'block';
-      ovScoreVal.textContent = score;
-      ovCta.textContent = 'TAP TO RETRY';
-      overlay.classList.remove('hidden');
+      gameOver();
     } else {
       resetBall();
     }
+  }
+
+  // ---- scoreboard / high-score flow ----
+  function renderList(board, highlightIndex) {
+    sbList.innerHTML = '';
+    if (!board || board.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'score-empty';
+      empty.textContent = board ? 'No scores yet — be the first!' : "Couldn't load scores.";
+      sbList.appendChild(empty);
+      return;
+    }
+    board.forEach((e, i) => {
+      const row = document.createElement('div');
+      row.className = 'score-row' + (i === highlightIndex ? ' me' : '');
+      row.innerHTML =
+        '<span class="rank">' + (i + 1) + '</span>' +
+        '<span class="name"></span>' +
+        '<span class="pts"></span>';
+      row.querySelector('.name').textContent = e.name;
+      row.querySelector('.pts').textContent = e.score;
+      sbList.appendChild(row);
+    });
+  }
+
+  function showOnly(el) {
+    overlay.classList.add('hidden');
+    nameentry.classList.add('hidden');
+    scoreboard.classList.add('hidden');
+    el.classList.remove('hidden');
+  }
+
+  function openScoreboard(context, board, highlightIndex) {
+    state = S.scores;
+    const backToMenu = context === 'menu';
+    sbBtn.textContent = backToMenu ? 'BACK' : 'REMATCH';
+    sbBtn.onclick = () => { backToMenu ? openMenu() : startGame(); };
+    showOnly(scoreboard);
+    if (board !== undefined) {
+      renderList(board, highlightIndex);
+    } else {
+      sbList.innerHTML = '<div class="score-empty">Loading…</div>';
+      (window.BB_Scores?.top10() ?? Promise.resolve(null)).then(b => { if (state === S.scores) renderList(b, -1); });
+    }
+  }
+
+  function openMenu() {
+    state = S.menu;
+    showOnly(overlay);
+  }
+
+  async function gameOver() {
+    // Show the board frame with a loading state right away so a slow fetch
+    // doesn't leave the player staring at a frozen, feedback-less canvas.
+    state = S.scores;
+    sbBtn.textContent = 'REMATCH';
+    sbBtn.onclick = () => startGame();
+    sbList.innerHTML = '<div class="score-empty">Loading…</div>';
+    showOnly(scoreboard);
+
+    const board = await (window.BB_Scores?.top10() ?? Promise.resolve(null));
+    if (state !== S.scores) return; // player already left (e.g. tapped REMATCH)
+    // A null board means the fetch failed; still let a scoring player enter their
+    // name (submit is attempted + SKIP is available) rather than dropping the score.
+    const qualifies = score > 0 && (board === null || board.length < 10 || score > board[board.length - 1].score);
+    if (qualifies) {
+      askName();
+    } else {
+      openScoreboard('gameover', board, -1);
+    }
+  }
+
+  function askName() {
+    state = S.name;
+    neScore.textContent = score;
+    nameInput.value = '';
+    neError.style.display = 'none';
+    neSave.classList.add('disabled');
+    showOnly(nameentry);
+    setTimeout(() => nameInput.focus(), 50);
+  }
+
+  nameInput.addEventListener('input', () => {
+    const clean = nameInput.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5);
+    if (clean !== nameInput.value) nameInput.value = clean;
+    neSave.classList.toggle('disabled', clean.length === 0);
+    neError.style.display = 'none';
+  });
+  nameInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && nameInput.value.length > 0) saveScore();
+  });
+  neSave.addEventListener('click', () => { if (nameInput.value.length > 0) saveScore(); });
+  neSkip.addEventListener('click', () => openScoreboard('gameover'));
+
+  let saving = false;
+  async function saveScore() {
+    if (saving) return;
+    saving = true;
+    const name = nameInput.value;
+    neError.style.display = 'none';
+    neSave.classList.add('disabled');
+
+    const savedId = await (window.BB_Scores?.submit(name, score) ?? Promise.resolve(null));
+    if (!savedId) { // write failed — keep the player here so they can retry (or SKIP)
+      saving = false;
+      neError.textContent = "Couldn't save — check your connection and try again.";
+      neError.style.display = 'block';
+      neSave.classList.remove('disabled');
+      return;
+    }
+
+    const board = await (window.BB_Scores?.top10() ?? Promise.resolve(null));
+    saving = false;
+    // Highlight the exact row we just wrote (by id), not name+score which can collide.
+    const idx = board ? board.findIndex(e => e.id === savedId) : -1;
+    openScoreboard('gameover', board, idx);
   }
   function syncHud() {
     hudScore.textContent = score;
