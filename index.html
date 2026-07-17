@@ -57,7 +57,7 @@
   <p id="ov-text">Swipe <b>through the ball</b> to whack it at the bricks — your swipe direction and speed become the ball's. Gravity pulls it back down; keep it alive. Time slows when the ball drops low, so line up your swat.</p>
   <div class="score-line" id="ov-score" style="display:none">Final score <b id="ov-score-val">0</b></div>
   <div class="cta" id="ov-cta">TAP TO START</div>
-  <div id="version">v0.2.6</div>
+  <div id="version">v0.2.7</div>
 </div>
 <script>
 (() => {
@@ -100,7 +100,7 @@
   const GRAV = 900;            // px/s^2
   const MAX_SPEED = 1080, MIN_SWAT = 380;
   const SEP = 0.5;             // separation epsilon: a resolved ball sits strictly outside the brick
-  const ball = { x:0, y:0, vx:0, vy:0, r:11, hitR:12.5, waiting:true };
+  const ball = { x:0, y:0, vx:0, vy:0, r:11, hitR:11.4, waiting:true };
   let swatCooldown = 0;
 
   // ---- pointer / swipe ----
@@ -145,7 +145,7 @@
     const speed = Math.hypot(sx, sy);
     if (speed < MIN_SWAT) return;
     // segment a->b vs ball circle (padded)
-    const pad = ball.r + 30;
+    const pad = (ball.r + 30) * 1.1;
     const fx = a.x - ball.x, fy = a.y - ball.y;
     const len2 = dx*dx + dy*dy || 1;
     let t = -(fx*dx + fy*dy) / len2;
