@@ -141,7 +141,7 @@
   <p id="ov-text">Swipe <b>through the ball</b> to whack it at the bricks — your swipe direction and speed become the ball's. Gravity pulls it back down; keep it alive. Time slows when the ball drops low, so line up your swat.</p>
   <div class="cta" id="ov-cta">TAP TO START</div>
   <div class="cta secondary" id="ov-scores">SCOREBOARD</div>
-  <div id="version">v0.3.0</div>
+  <div id="version">v0.3.1</div>
 </div>
 <div id="scoreboard" class="hidden">
   <h1>HIGH SCORES</h1>
@@ -208,7 +208,11 @@
 
   // ---- pointer / swipe ----
   const trail = []; // {x,y,t}
-  let pointerDown = false;
+  // Only one finger controls the ball at a time. Tracking the active pointer id
+  // (instead of a shared boolean) stops two-finger cheating: extra simultaneous
+  // touches would otherwise interleave into the shared trail — a second paddle,
+  // plus a fake huge swipe speed from the trail jumping between two fingers.
+  let activePointerId = null;
 
   function addTrailPoint(x, y) {
     const t = performance.now();
@@ -219,19 +223,24 @@
     return { x: e.clientX, y: e.clientY };
   }
   canvas.addEventListener('pointerdown', e => {
-    pointerDown = true;
+    if (activePointerId !== null) return; // ignore additional fingers
+    activePointerId = e.pointerId;
     trail.length = 0;
     const p = pointerPos(e);
     addTrailPoint(p.x, p.y);
   });
   canvas.addEventListener('pointermove', e => {
-    if (!pointerDown) return;
+    if (e.pointerId !== activePointerId) return; // only the controlling finger
     const p = pointerPos(e);
     const last = trail[trail.length - 1];
     addTrailPoint(p.x, p.y);
     if (state === S.playing && last) trySwat(last, p);
   });
-  window.addEventListener('pointerup', () => { pointerDown = false; });
+  function endPointer(e) {
+    if (e.pointerId === activePointerId) activePointerId = null;
+  }
+  window.addEventListener('pointerup', endPointer);
+  window.addEventListener('pointercancel', endPointer);
   overlay.addEventListener('pointerdown', () => {
     if (state === S.menu) startGame();
   });
